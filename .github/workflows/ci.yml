@@ -10,42 +10,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 코드 체크아웃
+      # 1. 코드 체크아웃
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # AWS 자격증명 구성
+      # 2. AWS 자격증명 구성
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }} # secrets로 수정
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # ECR 로그인
+      # 3. Amazon ECR 로그인
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Docker 이미지 빌드 및 푸시
+      # 4. 버전 자동 생성 (빌드 번호 + 커밋 해시)
+      - name: Set image version tag
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          echo "IMAGE_TAG=v${{ github.run_number }}-$SHORT_SHA" >> $GITHUB_ENV
+
+      # 5. Docker 이미지 빌드 및 푸시
       - name: Build, Tag, and Push image to ECR
         env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}   # secrets로 수정
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }} # secrets로 수정
-          IMAGE_TAG: ${{ secrets.IMAGE_TAG }}           # secrets로 수정
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          # 위 단계에서 생성된 IMAGE_TAG가 env 환경변수로 주입됩니다.
         run: |
-          echo "Building Docker image..."
+          echo "Building Docker image with tag: $IMAGE_TAG..."
           docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "Pushing image to ECR..."
+          
+          # (선택사항) 최신 이미지를 가리키는 latest 태그도 함께 업데이트하고 싶을 때 추가
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          
+          echo "Pushing images to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      # 빌드 결과 확인용 로그
+      # 6. 빌드 결과 확인용 로그
       - name: Verify pushed image
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ secrets.IMAGE_TAG }}
         run: |
-          echo "ECR image pushed:"
-          echo "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "ECR image pushed with tag: $IMAGE_TAG"
+          echo "Full Image Path: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
