@@ -20,7 +20,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }} # secrets로 수정
 
       # ECR 로그인
       - name: Login to Amazon ECR
@@ -30,9 +30,9 @@ jobs:
       # Docker 이미지 빌드 및 푸시
       - name: Build, Tag, and Push image to ECR
         env:
-          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}   # secrets로 수정
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }} # secrets로 수정
+          IMAGE_TAG: ${{ secrets.IMAGE_TAG }}           # secrets로 수정
         run: |
           echo "Building Docker image..."
           docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
@@ -42,6 +42,10 @@ jobs:
 
       # 빌드 결과 확인용 로그
       - name: Verify pushed image
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ secrets.IMAGE_TAG }}
         run: |
           echo "ECR image pushed:"
           echo "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
